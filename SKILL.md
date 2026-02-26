@@ -9,7 +9,7 @@ Do NOT run a generic checklist. Instead: read the code, extract every auditable 
 
 ## Phase 1: Dissect (10-15 min)
 
-Read all project files. Build 6 tables. These tables ARE the audit — everything found here gets verified in Phase 2.
+Read all project files. Build 7 tables. These tables ARE the audit — everything found here gets verified in Phase 2.
 
 ### Table 1: API Endpoints
 
@@ -93,6 +93,20 @@ For each resource, ask:
 - Are items in safe-box excluded from ALL outflows? (trade, sell, merge, fuse, gift)
 - Is there a loop? (buy item A → sell for more than cost → repeat)
 
+### Table 7: Concurrency Hotspots (TOCTOU)
+
+For every operation that reads-then-writes shared state (balance check→deduct, stock check→reserve, coupon check→redeem):
+
+```
+| # | Operation | Read step | Write step | Atomic? | What if 2 requests hit simultaneously? |
+```
+
+This catches race conditions that single-request testing misses. For each operation, ask:
+- Is the read-then-write atomic? (SQL `UPDATE x=x-1 WHERE x>=1` is atomic; `SELECT` then `UPDATE` is NOT)
+- Can two concurrent requests both pass the check and both execute the write? (double-spend)
+- Is there a mutex/lock/transaction? If using SQLite, is WAL mode enabled for concurrent reads?
+- For multi-step flows: can request A be between steps while request B starts the same flow?
+
 ## Phase 2: Verify (main audit)
 
 Go through every row in every table. For each row, determine:
@@ -118,7 +132,7 @@ After verifying all tables, switch to adversarial mode. Read `references/redblue
 
 ### Structure
 The playbook has 4 parts:
-1. **Universal Chains (4)** — apply to ALL projects: Auth Bypass, Injection, Rate Abuse, Data Leakage
+1. **Universal Chains (5)** — apply to ALL projects: Auth Bypass, Injection, Rate Abuse, Data Leakage, Concurrency/Race Conditions
 2. **Type-Specific Chains** — pick sections matching the project:
    - 🎮 Game: Skip-Pay-Collect, Economic Loop, State Manipulation, Anti-Cheat Bypass
    - 📊 Data Tool: Data Access Control, Data Integrity, Scheduled Task Abuse
@@ -131,7 +145,7 @@ The playbook has 4 parts:
 
 ### How to Run
 1. From Phase 1 dissection, identify project type(s) — a project can match multiple types
-2. Run ALL 4 Universal Chains
+2. Run ALL 5 Universal Chains
 3. Run type-specific chains matching the project
 4. For each 🔴 finding: verify all 4 Blue Team layers
 5. For each 🟡 finding: verify Layer 1 (Prevention) at minimum
@@ -141,6 +155,7 @@ The playbook has 4 parts:
 After red/blue team, run generic checks as a final safety net. Read `references/modules.md` and pick sections matching the project:
 
 - 🔒 Security (S1-S3): CORS, XSS, SQLi, brute force — if project has users
+- 🔐 Crypto (C1): Hardcoded secrets, weak hashing, plaintext storage, insecure random — all projects
 - 📊 Data (D1-D3): Timezone, atomic ops, float precision — if project has DB
 - ⚡ Performance (P1-P2): Memory leaks, hot paths — if project is large/realtime
 - 🎮 Game (G1-G4): State guards, rendering, config — if project is a game
@@ -148,8 +163,10 @@ After red/blue team, run generic checks as a final safety net. Read `references/
 - 🔌 API (A1-A3): Interface standards, rate limiting — if project is an API service
 - 🤖 Bot (B1): Timeout, dedup, sensitive words — if project is a bot
 - 🚀 Deploy (R1-R2): PM2, nginx, SSL, SDK overwrite — all projects
-- 🧪 Error Handling (E1): Every network request, every DB query, every file operation — if project has frontend
-- 📱 UX Robustness (U1): User-facing error paths, empty states, loading states — all projects with UI
+- 🧪 Error Handling (E1-E2): Network errors, server errors, graceful degradation — all projects
+- 📱 UX Robustness (U1-U2): Error states, edge case UX — all projects with UI
+- 📦 Supply Chain (SC1): npm audit, dependency vulnerabilities, lockfile integrity — all Node.js projects
+- 📝 Logging (L1): Security event logging, audit trail completeness — all projects with users
 
 ## Phase 5: Regression + Verify
 
@@ -171,6 +188,6 @@ Update project docs with: date, tables built, bugs found/fixed, key pitfalls for
 
 ## Reference Files
 
-- `references/modules.md` — Generic audit modules (Security, Data, Performance, Game, WeChat, API, Bot, Deploy, Error Handling, UX) for Phase 4 supplementary checks.
-- `references/redblue.md` — Red team attack chains and blue team defense verification playbook for Phase 3.
+- `references/modules.md` — Generic audit modules (Security, Crypto, Data, Performance, Game, WeChat, API, Bot, Deploy, Error Handling, UX, Supply Chain, Logging) for Phase 4 supplementary checks.
+- `references/redblue.md` — Red team attack chains (universal + 6 project types) and blue team defense verification playbook for Phase 3.
 - `references/pitfalls.md` — Real-world pitfall lookup table from 200+ bugs, plus WeChat WebView remote debugging techniques.

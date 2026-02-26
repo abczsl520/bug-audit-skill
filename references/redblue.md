@@ -84,6 +84,29 @@ Goal: Extract sensitive information
 8. Response headers: x-powered-by leaks framework version?
 ```
 
+## U-Chain 5: Concurrency & Race Conditions (TOCTOU)
+```
+Goal: Exploit timing gaps between check and use
+1. Balance/stock check-then-deduct:
+   - Send 10 identical "buy" requests simultaneously → charged once but received 10x?
+   - Is the deduction atomic? (SQL UPDATE x=x-1 WHERE x>=1 is safe; SELECT then UPDATE is NOT)
+2. Coupon/code redemption:
+   - Send 5 simultaneous redeem requests for same one-time code → all succeed?
+   - Is there a UNIQUE constraint or atomic flag flip?
+3. Multi-step workflows:
+   - Request A is between step 1 and step 2; Request B starts step 1 → both complete?
+   - Example: transfer money — check balance → deduct → credit. Two transfers overlap?
+4. Session/token operations:
+   - Login while another login is in progress → duplicate sessions?
+   - Password reset token: two simultaneous requests → two valid tokens?
+5. File/resource operations:
+   - Two requests write to same file simultaneously → corruption?
+   - Two requests create same unique resource → duplicate?
+6. SQLite-specific:
+   - WAL mode enabled? (default journal mode blocks concurrent writes entirely)
+   - BUSY timeout set? (concurrent writes get SQLITE_BUSY without it)
+```
+
 ---
 
 # PART 2: TYPE-SPECIFIC CHAINS
