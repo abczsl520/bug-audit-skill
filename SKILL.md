@@ -112,27 +112,50 @@ Bug N: [🔴/🟡/🟢] Brief description
 
 **Do NOT stop when you run out of "inspiration".** You stop when every row in every table has been verified ✅ or flagged 🔴/🟡/🟢. This is exhaustive, not heuristic.
 
-## Phase 3: Supplement
+## Phase 3: Red Team / Blue Team
 
-After exhausting all tables, run these generic checks as a safety net. Read `references/modules.md` and pick sections matching the project:
+After verifying all tables, switch to adversarial mode. Read `references/redblue.md` for the full playbook.
+
+### Red Team (Attack)
+Don't test endpoints in isolation — build **attack chains** combining multiple weaknesses:
+
+1. **Recon**: List all public endpoints, leaked info in responses, config/debug endpoints left open
+2. **Auth attacks**: Token replay, session fixation, privilege escalation (user→admin), openid forgery
+3. **Economic exploits**: Skip-pay-collect chains, infinite resource loops, negative-amount tricks, race conditions on balance checks
+4. **State manipulation**: Force state transitions out of order, stale state injection from previous lifecycle, timer-based race conditions
+5. **Injection & overflow**: SQL injection (even with prepare — check dynamic table/column names), XSS stored via nickname/message, prototype pollution via JSON merge, payload size bombs
+6. **Rate abuse**: No rate limit = DDoS vector; Socket.IO event spam creating entities; leaderboard query amplification
+
+### Blue Team (Defense Verification)
+For each red team finding, verify the defense exists:
+
+1. **Detection**: Does the server log the attack attempt? Would anyone notice?
+2. **Prevention**: Is there a rate limiter? Input validator? Token check?
+3. **Containment**: If exploited, what's the blast radius? Can damage be rolled back?
+4. **Recovery**: Is there a data backup/snapshot? Can affected accounts be restored?
+
+## Phase 4: Supplement
+
+After red/blue team, run generic checks as a final safety net. Read `references/modules.md` and pick sections matching the project:
 
 - 🔒 Security (S1-S3): CORS, XSS, SQLi, brute force — if project has users
-- 📊 Data (D1-D2): Timezone, atomic ops, float precision — if project has DB
+- 📊 Data (D1-D3): Timezone, atomic ops, float precision — if project has DB
 - ⚡ Performance (P1-P2): Memory leaks, hot paths — if project is large/realtime
+- 🎮 Game (G1-G4): State guards, rendering, config — if project is a game
 - 🔧 WeChat (W1-W3): ES6 compat, CDN, debugging — if runs in WeChat WebView
 - 🔌 API (A1-A3): Interface standards, rate limiting — if project is an API service
 - 🤖 Bot (B1): Timeout, dedup, sensitive words — if project is a bot
 - 🚀 Deploy (R1-R2): PM2, nginx, SSL, SDK overwrite — all projects
+- 🧪 Error Handling (E1): Every network request, every DB query, every file operation — if project has frontend
+- 📱 UX Robustness (U1): User-facing error paths, empty states, loading states — all projects with UI
 
-These catch "known pattern" bugs that the tables might miss (like CORS misconfiguration or timezone traps).
-
-## Phase 4: Regression + Verify
+## Phase 5: Regression + Verify
 
 - Check that fixes didn't introduce new bugs
 - After modular split: verify cross-file variable/function reachability
 - Live smoke test: homepage 200, key APIs return JSON, login works, core feature functional
 
-## Phase 5: Archive
+## Phase 6: Archive
 
 Update project docs with: date, tables built, bugs found/fixed, key pitfalls for next audit.
 
@@ -146,5 +169,6 @@ Update project docs with: date, tables built, bugs found/fixed, key pitfalls for
 
 ## Reference Files
 
-- `references/modules.md` — Generic audit modules (Security, Data, Performance, Game, WeChat, API, Bot, Deploy) for Phase 3 supplementary checks.
+- `references/modules.md` — Generic audit modules (Security, Data, Performance, Game, WeChat, API, Bot, Deploy, Error Handling, UX) for Phase 4 supplementary checks.
+- `references/redblue.md` — Red team attack chains and blue team defense verification playbook for Phase 3.
 - `references/pitfalls.md` — Real-world pitfall lookup table from 200+ bugs, plus WeChat WebView remote debugging techniques.

@@ -170,3 +170,40 @@ Read only the sections matching the project's type tags from Step 1.
 - SDK/init code not overwritten by deployment (5 games lost SDK init from deploy overwrite)
 - Local vs server file SHA match
 - After replacing dependency: verify API compatibility (`grep -c "Runner" phaser.min.js`)
+
+---
+
+## 🧪 E — Error Handling (projects with frontend or network calls)
+
+### E1 Network Error Paths
+- Every `fetch()` has `.catch()` with user-visible feedback (not silent failure)
+- Login failure: show error message (not blank screen with default values)
+- Action submission failure (raid-result, quest-complete): show toast/alert (not "earned $0" confusion)
+- Timeout handling: what if server takes 30 seconds? Is there a loading indicator + timeout?
+- Offline/disconnect: does the UI degrade gracefully or freeze?
+
+### E2 Server Error Paths
+- Every DB query wrapped in try-catch (not unhandled rejection crash)
+- Every file operation has error handling (readFileSync on missing file)
+- External API call failure: retry? fallback? or crash?
+- Malformed request body: does it 400 or crash with TypeError?
+- Global error handler: catches unhandled exceptions, logs, returns 500 (not stack trace)
+
+---
+
+## 📱 U — UX Robustness (projects with user interface)
+
+### U1 User-Facing Error States
+- Login fails → clear error message (not silent redirect or blank state)
+- Empty data → "no results" placeholder (not blank page)
+- Loading → spinner or skeleton (not frozen UI)
+- Action succeeds → confirmation feedback (not "did it work?")
+- Action fails → specific error (not generic "something went wrong")
+
+### U2 Edge Case UX
+- First-time user: does the default state make sense? (not "$ 500" when not logged in)
+- Rapid double-click: does it trigger twice? (buy button, submit button)
+- Back button: does it break state? (game in progress → back → forward)
+- Screen rotation / resize: does layout survive?
+- Very long text input: does it overflow or break layout? (nickname, chat message)
+- Concurrent tabs: does action in tab A break tab B?
