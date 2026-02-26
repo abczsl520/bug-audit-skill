@@ -1,120 +1,150 @@
 ---
 name: bug-audit
-description: Comprehensive bug audit for Node.js web projects. Activate when user asks to audit, review, check bugs, find vulnerabilities, or do security/quality review on a project. Supports game projects (Canvas/Phaser/Three.js), data tools (crawlers/schedulers), WeChat mini-programs, API services, dashboards, and bots. Dynamically generates a tailored audit plan based on project profiling rather than running a fixed checklist.
+description: Comprehensive bug audit for Node.js web projects. Activate when user asks to audit, review, check bugs, find vulnerabilities, or do security/quality review on a project. Works by dissecting the project's actual code to build project-specific check matrices, then exhaustively verifying each item — not by running a generic checklist. Supports games, data tools, WeChat apps, API services, bots, and dashboards.
 ---
 
-# Bug Audit Flow
+# Bug Audit — Dissect, Then Verify
 
-Audit any Node.js web project by profiling it first, then selecting relevant audit modules.
+Do NOT run a generic checklist. Instead: read the code, extract every auditable entity, then exhaustively question each one.
 
-## Flow
+## Phase 1: Dissect (10-15 min)
 
-```
-Step 1: Profile → Step 2: Plan → Step 3: Execute → Step 4: Regress → Step 5: Archive
-```
+Read all project files. Build 6 tables. These tables ARE the audit — everything found here gets verified in Phase 2.
 
-## Step 1: Project Profile (5 min)
+### Table 1: API Endpoints
 
-Read the project's key files and answer:
-
-### 1.1 Basics
-- Project name, server.js lines, index.html lines, total files
-- Stack: Express / Socket.IO / Phaser / Three.js / Canvas / DOM-only
-- DB: SQLite / MySQL / PostgreSQL / none
-- Recent modular refactor? (variable ordering bugs likely)
-
-### 1.2 Type Tags (multi-select)
-
-| Signal | Tag |
-|--------|-----|
-| Canvas/Phaser/physics/game loop | 🎮 game |
-| Crawler/scheduler/data sync/Feishu import | 📊 data-tool |
-| WeChat OAuth/JS-SDK/official account API | 🔧 wechat |
-| Socket.IO/WebSocket realtime | ⚡ realtime |
-| External API with key auth | 🔌 api-service |
-| Charts/dashboard/monitoring | 📈 dashboard |
-| Money/transactions/assets | 💰 finance |
-| Admin panel/config.json hot-reload | 🛠️ admin |
-| Bot/auto-reply/message handler | 🤖 bot |
-
-### 1.3 Risk Scan
-
-| Question | If yes → focus on |
-|----------|-------------------|
-| server.js > 1000 lines? | High-density bugs, understand structure first |
-| User login / resource system? | Security + economy exploits |
-| Cron / scheduled tasks? | Task reliability + error isolation |
-| Third-party API calls? | Timeout / retry / fallback |
-| Runs in WeChat WebView? | ES6 compat + CDN + debugging |
-| Multiplayer realtime? | Concurrency / state sync / memory leaks |
-| Recent modular split? | Variable order / cross-file refs / regression |
-| Has config.json? | Are values actually read by code? |
-
-## Step 2: Build Plan
-
-Based on the profile, pick modules from `references/modules.md`. Read only the sections that match the project's tags. Do NOT run all modules on every project.
-
-**Required for all projects:** S (Security, if has users), D1 (Atomic ops, if has DB), R1 (Deploy basics).
-
-**Pick by tag:**
-- 🎮 game → G1 G2 G3 G4
-- 📊 data-tool → D3
-- 🔧 wechat → W1 W2 W3
-- ⚡ realtime → P1
-- 🔌 api-service → A1 A2 A3
-- 🤖 bot → B1
-- 💰 finance → D1 (extra strict)
-- 🛠️ admin → G4 (config validation)
-
-**Always add project-specific items** — the modules are a starting point, not a ceiling. If you spot something unusual during profiling, add it to the plan.
-
-## Step 3: Execute
-
-Run rounds in risk order:
+For every route in server-side code:
 
 ```
-Round 1: Quick scan (node -c syntax + HTML tag matching + obvious issues)
-Round 2: Security (S modules)
-Round 3: Core logic (G/D/A/B modules by type)
-Round 4: User path simulation (login → core feature, full walkthrough)
-Round 5: Red team (simulate attacker: resource exploits, level skipping, parameter forgery, race conditions)
-Round 6: Performance + memory (P modules)
-Round 7: Config + compatibility (G4/W modules)
-Round 8: Deploy verification (R modules)
+| # | Method | Path | Auth? | Params validated? | Precondition | Returns | Attack vector |
 ```
 
-**Output format per round:**
+For each endpoint, ask:
+- Can I call this without authentication?
+- Can I pass 0, negative, NaN, huge numbers, arrays, objects?
+- Can I skip a prerequisite API and call this directly?
+- What happens if I call this 100 times per second?
+- Does the response leak sensitive data (openid, internal IDs, full user objects)?
+
+### Table 2: State Machines
+
+For every boolean/enum state variable (isGameOver, battleState, Game.running, phase, mode...):
+
+```
+| # | Variable | Set by | Read by | Init value | Reset when? | Can it leak across lifecycles? |
+```
+
+For each variable, ask:
+- If the game/session ends, does this get reset?
+- If I start a new round immediately, will stale state from the previous round affect it?
+- Are there race conditions between setters?
+
+### Table 3: Timers
+
+For every setTimeout/setInterval:
+
+```
+| # | Type | Delay | Created in | Cleared in | What if lifecycle ends before it fires? |
+```
+
+For each timer, ask:
+- Is the handle stored for cleanup?
+- If the game ends / user disconnects / page navigates, does this still fire?
+- If it fires after cleanup, does it reference destroyed objects?
+
+### Table 4: Numeric Values
+
+For every user-influenceable number (cost, score, damage, lootValue, kills, quantity...):
+
+```
+| # | Name | Source (client/server/config) | Validated? | Min | Max | What if 0? | What if negative? |
+```
+
+For each value, ask:
+- Is the server-side cap realistic? (kills cap 200 but max enemies is 50?)
+- Can the client send a value the server trusts without verification?
+- Float precision issues? (accumulated math → 290402.0000000001)
+
+### Table 5: Data Flows (Critical!)
+
+For every pair of related APIs (buy→use, start→complete, pay→deliver, login→action):
+
+```
+| # | Step 1 API | Step 2 API | Token/link between them? | Can skip Step 1? | Can replay Step 1? |
+```
+
+This is where the biggest bugs hide. For each flow, ask:
+- Can I call Step 2 without ever calling Step 1? (raid-result without buy)
+- Can I call Step 1 once but Step 2 many times? (buy once, submit results 10 times)
+- Is there a one-time token linking them? If not, this is a critical vulnerability.
+- Can I call Step 1 with cost=0 then Step 2 with high reward?
+
+### Table 6: Resource Ledger
+
+For every in-game resource (coins, gems, items, XP, energy...):
+
+```
+| # | Resource | All INFLOWS (APIs/events that add) | All OUTFLOWS (APIs/events that subtract) | Daily limits? | Can any inflow be infinite? |
+```
+
+For each resource, ask:
+- Is there any inflow without a corresponding cost? (free coins from quest with no cooldown)
+- Can any outflow go negative? (sell item → coins, but what if coins overflow?)
+- Are items in safe-box excluded from ALL outflows? (trade, sell, merge, fuse, gift)
+- Is there a loop? (buy item A → sell for more than cost → repeat)
+
+## Phase 2: Verify (main audit)
+
+Go through every row in every table. For each row, determine:
+- 🔴 Critical: exploitable security hole, data loss, crash
+- 🟡 Medium: logic error, inconsistency, performance issue  
+- 🟢 Minor: code quality, edge case, UX issue
+- ✅ OK: verified correct
+
+Output format:
 ```
 Bug N: [🔴/🟡/🟢] Brief description
+- Row: Table X, #Y
 - Cause: ...
 - Fix: ...
 - File: ...
 ```
 
-**Early exit:** 2 consecutive rounds with 0 new bugs → done.
-**Small projects (<1000 lines):** 3-4 rounds is enough.
-**API-only (no frontend):** Skip G/W modules.
+**Do NOT stop when you run out of "inspiration".** You stop when every row in every table has been verified ✅ or flagged 🔴/🟡/🟢. This is exhaustive, not heuristic.
 
-## Step 4: Regression + Live Verify
+## Phase 3: Supplement
 
-### Regression (mandatory)
-- Check fixes didn't introduce new bugs
+After exhausting all tables, run these generic checks as a safety net. Read `references/modules.md` and pick sections matching the project:
+
+- 🔒 Security (S1-S3): CORS, XSS, SQLi, brute force — if project has users
+- 📊 Data (D1-D2): Timezone, atomic ops, float precision — if project has DB
+- ⚡ Performance (P1-P2): Memory leaks, hot paths — if project is large/realtime
+- 🔧 WeChat (W1-W3): ES6 compat, CDN, debugging — if runs in WeChat WebView
+- 🔌 API (A1-A3): Interface standards, rate limiting — if project is an API service
+- 🤖 Bot (B1): Timeout, dedup, sensitive words — if project is a bot
+- 🚀 Deploy (R1-R2): PM2, nginx, SSL, SDK overwrite — all projects
+
+These catch "known pattern" bugs that the tables might miss (like CORS misconfiguration or timezone traps).
+
+## Phase 4: Regression + Verify
+
+- Check that fixes didn't introduce new bugs
 - After modular split: verify cross-file variable/function reachability
-- If changed file A, check files that depend on A
+- Live smoke test: homepage 200, key APIs return JSON, login works, core feature functional
 
-### Live smoke test
-- Homepage returns 200
-- Key APIs return valid JSON
-- Login flow works
-- Core feature functional
+## Phase 5: Archive
 
-## Step 5: Archive
+Update project docs with: date, tables built, bugs found/fixed, key pitfalls for next audit.
 
-Update `memory/projects/<project>.md` changelog:
-- Date + rounds completed + bugs fixed count
-- Key pitfalls discovered (for next audit reference)
+## Key Principles
+
+1. **Tables first, checking second.** Building the tables IS the hard work. Once you have them, verification is mechanical.
+2. **Exhaustive, not heuristic.** Don't stop when you "feel done." Stop when every row is verified.
+3. **Think like an attacker.** For every API: "How would I exploit this?" For every value: "What if I send garbage?"
+4. **Data flows are where critical bugs hide.** The link (or lack thereof) between related APIs is the #1 source of exploitable vulnerabilities.
+5. **Generic checklists are supplements, not the main event.** They catch known patterns; the tables catch project-specific logic bugs.
 
 ## Reference Files
 
-- `references/modules.md` — All audit modules (Security, Data, Performance, Game, WeChat, API, Bot, Deploy). Read sections matching project tags.
-- `references/pitfalls.md` — Real-world pitfall lookup table from 200+ bugs across 30+ projects, plus WeChat WebView remote debugging techniques.
+- `references/modules.md` — Generic audit modules (Security, Data, Performance, Game, WeChat, API, Bot, Deploy) for Phase 3 supplementary checks.
+- `references/pitfalls.md` — Real-world pitfall lookup table from 200+ bugs, plus WeChat WebView remote debugging techniques.
