@@ -1,6 +1,6 @@
 # Audit Modules
 
-Read only the sections matching the project's type tags from Step 1.
+Read only the sections matching the project's type tags from Phase 1 dissection.
 
 ## 🔒 S — Security (projects with user systems)
 
@@ -25,6 +25,20 @@ Read only the sections matching the project's type tags from Step 1.
 - Global error middleware (no stack traces to client)
 - Socket.IO: `maxHttpBufferSize: 16384`
 - Max connection limit (prevent DDoS entity creation)
+
+---
+
+## 🔐 C — Cryptographic Failures (all projects) [OWASP 2025 A04]
+
+### C1 Secrets & Credentials
+- Hardcoded passwords/API keys/tokens in source code (grep for `password`, `secret`, `apiKey`, `token` in .js files)
+- Secrets in config.json committed to git (should be in .env or environment variables)
+- Admin password stored as plaintext or weak hash (MD5/SHA1 without salt)
+- Password comparison: `===` is vulnerable to timing attacks → use `crypto.timingSafeEqual`
+- Session tokens: generated with `Math.random()`? → use `crypto.randomBytes(32).toString('hex')`
+- JWT: using `none` algorithm? Secret too short? Stored in localStorage (XSS-accessible)?
+- API keys in frontend code (visible in browser DevTools)
+- Sensitive data in URL query parameters (logged by nginx, browser history, referrer headers)
 
 ---
 
@@ -207,3 +221,33 @@ Read only the sections matching the project's type tags from Step 1.
 - Screen rotation / resize: does layout survive?
 - Very long text input: does it overflow or break layout? (nickname, chat message)
 - Concurrent tabs: does action in tab A break tab B?
+
+---
+
+## 📦 SC — Supply Chain Security (all Node.js projects) [OWASP 2025 A03]
+
+### SC1 Dependency Audit
+- Run `npm audit` — any critical/high vulnerabilities?
+- `package-lock.json` exists and committed? (reproducible builds)
+- Dependencies pinned to exact versions or using `^` (allows minor bumps with potential breaking changes)?
+- Any dependencies with 0 maintainers or abandoned (no updates in 2+ years)?
+- `postinstall` scripts in dependencies: do any run arbitrary code?
+- CDN-loaded libraries: integrity hash (`integrity="sha384-..."`) present? Or downloaded to server?
+- Are you using `eval()`, `new Function()`, or `child_process.exec()` with user input?
+- Node.js version: is it a supported LTS release? (EOL versions have unpatched CVEs)
+
+---
+
+## 📝 L — Security Logging & Monitoring [OWASP 2025 A09]
+
+### L1 Audit Trail
+- Failed login attempts: logged with IP + timestamp + username?
+- Successful logins: logged? (detect account takeover)
+- High-value transactions (purchase, transfer, delete): logged with user + amount + timestamp?
+- Admin actions: logged? (config change, user ban, data export)
+- API errors (4xx, 5xx): logged with request details?
+- Rate limit triggers: logged?
+- Logs stored securely? (not world-readable, not in public/ directory)
+- Log rotation: configured? (prevent disk exhaustion from log growth)
+- Sensitive data NOT in logs: no passwords, tokens, full credit card numbers in log output
+- Logs include enough context to reconstruct an incident: who, what, when, from where, result
