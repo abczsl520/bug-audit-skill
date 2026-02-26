@@ -116,23 +116,25 @@ Bug N: [🔴/🟡/🟢] Brief description
 
 After verifying all tables, switch to adversarial mode. Read `references/redblue.md` for the full playbook.
 
-### Red Team (Attack)
-Don't test endpoints in isolation — build **attack chains** combining multiple weaknesses:
+### Structure
+The playbook has 4 parts:
+1. **Universal Chains (4)** — apply to ALL projects: Auth Bypass, Injection, Rate Abuse, Data Leakage
+2. **Type-Specific Chains** — pick sections matching the project:
+   - 🎮 Game: Skip-Pay-Collect, Economic Loop, State Manipulation, Anti-Cheat Bypass
+   - 📊 Data Tool: Data Access Control, Data Integrity, Scheduled Task Abuse
+   - 🔌 API Service: Key/Token Abuse, Upstream Dependency, Response Manipulation
+   - 🤖 Bot: Message Injection, Bot State Abuse
+   - 🔧 WeChat: OAuth & Identity, WebView Compatibility, H5 Hybrid
+   - 📈 Platform: Cross-Service Trust, Multi-Tenant Isolation
+3. **Blue Team Defense** — for each finding, verify 4 layers: Prevention → Detection → Containment → Recovery
+4. **Execution Guide** — step-by-step for the auditor
 
-1. **Recon**: List all public endpoints, leaked info in responses, config/debug endpoints left open
-2. **Auth attacks**: Token replay, session fixation, privilege escalation (user→admin), openid forgery
-3. **Economic exploits**: Skip-pay-collect chains, infinite resource loops, negative-amount tricks, race conditions on balance checks
-4. **State manipulation**: Force state transitions out of order, stale state injection from previous lifecycle, timer-based race conditions
-5. **Injection & overflow**: SQL injection (even with prepare — check dynamic table/column names), XSS stored via nickname/message, prototype pollution via JSON merge, payload size bombs
-6. **Rate abuse**: No rate limit = DDoS vector; Socket.IO event spam creating entities; leaderboard query amplification
-
-### Blue Team (Defense Verification)
-For each red team finding, verify the defense exists:
-
-1. **Detection**: Does the server log the attack attempt? Would anyone notice?
-2. **Prevention**: Is there a rate limiter? Input validator? Token check?
-3. **Containment**: If exploited, what's the blast radius? Can damage be rolled back?
-4. **Recovery**: Is there a data backup/snapshot? Can affected accounts be restored?
+### How to Run
+1. From Phase 1 dissection, identify project type(s) — a project can match multiple types
+2. Run ALL 4 Universal Chains
+3. Run type-specific chains matching the project
+4. For each 🔴 finding: verify all 4 Blue Team layers
+5. For each 🟡 finding: verify Layer 1 (Prevention) at minimum
 
 ## Phase 4: Supplement
 
