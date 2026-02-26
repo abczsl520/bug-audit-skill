@@ -1,98 +1,63 @@
 # 🔍 Bug Audit Skill
 
-> Dynamic bug audit for Node.js web projects — profile first, then prescribe.
+> Don't run a checklist. Dissect the project, then exhaustively verify every entity.
 
-Built from real-world experience auditing **200+ bugs across 30+ projects** including H5 games, data pipelines, WeChat mini-programs, API services, and bots.
+Built from a hard lesson: a project took **21 rounds** to find 172 bugs using generic checklists. Post-mortem revealed that building project-specific check matrices first would have caught most bugs in **3-4 rounds**.
 
-## Why This Skill?
+## The Problem with Checklists
 
-Most audit checklists are static — you run the same 50 items on every project, wasting time on irrelevant checks. This skill takes a different approach:
+Generic checklists catch "known pattern" bugs (CORS, XSS, timezone). But most critical bugs are **project-specific logic vulnerabilities**:
+- `buy` API accepts `cost=0` → free purchases (not in any checklist)
+- `raid-result` callable without calling `buy` first → infinite money exploit
+- Search completion doesn't verify distance → remote looting
+
+These bugs live in the **relationships between APIs**, not in individual code patterns.
+
+## The Solution: Dissect → Verify → Supplement
 
 ```
-Profile the project → Pick relevant modules → Execute in risk order → Done
+Phase 1: Dissect — Read code, build 6 project-specific tables (10-15 min)
+Phase 2: Verify  — Exhaustively check every row in every table
+Phase 3: Supplement — Run generic modules as safety net
+Phase 4: Regress — Check fixes didn't introduce new bugs
+Phase 5: Archive — Record pitfalls for next audit
 ```
 
-A game project gets game-specific checks (physics bugs, anti-cheat, WebView compat). A data tool gets data-specific checks (timezone traps, fetch dedup, scheduler reliability). No bloat.
+### The 6 Tables
 
-## What's Inside
+| Table | Extracts | Key Question |
+|-------|----------|-------------|
+| API Endpoints | Every route: method, path, auth, params | Can I bypass? What if I send garbage? |
+| State Machines | Every state variable: setter, reader, lifecycle | Does it leak across lifecycles? |
+| Timers | Every setTimeout/setInterval | Does it fire after cleanup? |
+| Numeric Values | Every user-influenceable number | What if 0? Negative? Huge? |
+| Data Flows | Every related API pair (buy→use) | Can I skip Step 1 and call Step 2 directly? |
+| Resource Ledger | Every resource: all inflows, all outflows | Is there an infinite loop? |
 
-| File | Size | Content |
-|------|------|---------|
-| `SKILL.md` | 4.3 KB | Core 5-step flow: Profile → Plan → Execute → Regress → Archive |
-| `references/modules.md` | 7.3 KB | 9 audit modules with 100+ check items |
-| `references/pitfalls.md` | 4.2 KB | High-frequency pitfall table + remote debugging techniques |
-
-### 9 Audit Modules
-
-| Module | Tag | Focus |
-|--------|-----|-------|
-| 🔒 Security | All with users | Input validation, auth, CORS, brute force, prototype pollution |
-| 📊 Data | All with DB | Atomic ops, timezone traps, float precision, SQLite quirks |
-| ⚡ Performance | Large/realtime | Memory leaks, hot path optimization, cache strategies |
-| 🎮 Game | Canvas/Phaser | State guards, anti-cheat, rendering bugs, config validation |
-| 🔧 WeChat | WeChat WebView | ES6 compat, CDN fallback, JS-SDK, remote debugging |
-| 🔌 API | API services | Interface standards, rate limiting, upstream fallback |
-| 🤖 Bot | Bot/auto-reply | Timeout, dedup, sensitive word filter |
-| 🚀 Deploy | All | PM2, nginx, SSL, SDK overwrite detection |
-| 🔄 Regression | All | Self-introduced bugs, cross-file refs after refactor |
+**Data Flows table is the most critical.** The biggest bugs (buy bypass, missing raid tokens) hide in the links between APIs.
 
 ## Install
 
-### For [OpenClaw](https://github.com/openclaw/openclaw) Users
-
 ```bash
-# Clone into your skills directory
 git clone https://github.com/abczsl520/bug-audit-skill.git ~/.openclaw/skills/bug-audit
 ```
 
-Then in any chat, say:
+Then say: "对这个项目执行bug排查" or "audit this project for bugs"
 
-> "对这个项目执行bug排查" or "audit this project for bugs"
+## What's Inside
 
-The skill triggers automatically.
+| File | Content |
+|------|---------|
+| `SKILL.md` | Core methodology: 6 tables + 5 phases |
+| `references/modules.md` | 9 generic audit modules for Phase 3 |
+| `references/pitfalls.md` | 200+ real-world pitfalls + debugging techniques |
 
-### Manual Use
+## Documentation
 
-Read `SKILL.md` for the flow, `references/modules.md` for check items, `references/pitfalls.md` for common traps.
-
-## Quick Example
-
-**Step 1** — Profile says: Express + SQLite + Phaser + WeChat WebView, 3000 lines, recent modular refactor
-
-**Step 2** — Plan selects: S1 S2 S3 (security) + D1 D2 (data) + G1 G2 G3 G4 (game) + W1 W3 (wechat) + R1 R2 (deploy)
-
-**Step 3** — Execute 8 rounds, find 27 bugs:
-- 🔴 5 critical (CORS reflection, quest skip, admin brute force...)
-- 🟡 12 medium (timezone mixup, float precision, memory leak...)
-- 🟢 10 minor (missing catch, debug logs, cache headers...)
-
-**Step 4** — Regression catches 2 bugs introduced by fixes
-
-## Real-World Pitfalls (Preview)
-
-| Freq | Issue | Projects Hit |
-|------|-------|-------------|
-| ⭐⭐⭐ | `fetch()` without `.catch()` | 8+ |
-| ⭐⭐⭐ | `forEach` + `destroy()` = crash | 3 |
-| ⭐⭐⭐ | config.json written but never read | 5 |
-| ⭐⭐⭐ | UTC vs Beijing time mixup | 4 |
-| ⭐⭐ | CORS `origin:true` reflects any origin | 2 |
-| ⭐⭐ | `setInterval` without `clearInterval` | 4 |
-| ⭐ | Deploy overwrites SDK init code | 5 |
-
-Full table with 15 entries + WeChat WebView remote debugging techniques in `references/pitfalls.md`.
-
-## Tech Stack Coverage
-
-- **Runtime**: Node.js / Express / Socket.IO
-- **Games**: Phaser 3 / Three.js / Canvas / Matter.js
-- **Database**: SQLite / MySQL / PostgreSQL
-- **Platforms**: WeChat WebView / Standard browsers
-- **Infra**: PM2 / Nginx / Let's Encrypt
-
-## Contributing
-
-Found a new pitfall? Open an issue or PR. The more real-world data, the better the audit.
+Full docs on the [Wiki](https://github.com/abczsl520/bug-audit-skill/wiki):
+- [解剖流程详解](https://github.com/abczsl520/bug-audit-skill/wiki/解剖流程详解) — How to build each table, what to ask
+- [排查模块一览](https://github.com/abczsl520/bug-audit-skill/wiki/排查模块一览) — 9 generic modules for supplementary checks
+- [实战踩坑速查](https://github.com/abczsl520/bug-audit-skill/wiki/实战踩坑速查) — High-frequency pitfalls + remote debugging
 
 ## License
 
