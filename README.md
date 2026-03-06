@@ -1,5 +1,9 @@
 # 🔍 Bug Audit Skill
 
+[![ClawHub](https://img.shields.io/badge/ClawHub-bug--audit-blue?style=flat-square)](https://clawhub.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Agent_Skill-orange?style=flat-square)](https://github.com/openclaw/openclaw)
+
 > Don't run a checklist. Dissect the project, then exhaustively verify every entity.
 
 Built from a hard lesson: a project took **21 rounds** to find 172 bugs using generic checklists. Post-mortem revealed that building project-specific check matrices first would have caught most bugs in **3-4 rounds**.
@@ -39,6 +43,12 @@ Phase 5: Archive — Record pitfalls for next audit
 ## Install
 
 ```bash
+clawhub install bug-audit
+```
+
+Or manually:
+
+```bash
 git clone https://github.com/abczsl520/bug-audit-skill.git ~/.openclaw/skills/bug-audit
 ```
 
@@ -58,6 +68,16 @@ Full docs on the [Wiki](https://github.com/abczsl520/bug-audit-skill/wiki):
 - [解剖流程详解](https://github.com/abczsl520/bug-audit-skill/wiki/解剖流程详解) — How to build each table, what to ask
 - [排查模块一览](https://github.com/abczsl520/bug-audit-skill/wiki/排查模块一览) — 9 generic modules for supplementary checks
 - [实战踩坑速查](https://github.com/abczsl520/bug-audit-skill/wiki/实战踩坑速查) — High-frequency pitfalls + remote debugging
+
+## 🔗 Part of the AI Dev Quality Suite
+
+| Skill | Purpose | Install |
+|-------|---------|---------|
+| **bug-audit** (this) | Dynamic bug hunting, 200+ pitfall patterns | `clawhub install bug-audit` |
+| [codex-review](https://github.com/abczsl520/codex-review) | Three-tier code review: quick scan → deep audit → adversarial | `clawhub install codex-review` |
+| [debug-methodology](https://github.com/abczsl520/debug-methodology) | Root-cause debugging, prevents patch-chaining | `clawhub install debug-methodology` |
+| [nodejs-project-arch](https://github.com/abczsl520/nodejs-project-arch) | AI-friendly architecture, 70-93% token savings | `clawhub install nodejs-project-arch` |
+| [game-quality-gates](https://github.com/abczsl520/game-quality-gates) | 12 universal game dev quality checks | `clawhub install game-quality-gates` |
 
 ## License
 
